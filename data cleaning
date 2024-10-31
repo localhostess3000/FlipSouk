@@ -23,86 +23,58 @@ df.isnull().sum()
 
 #1. retail price and discounted price
 
-# Function to calculate deviation for a single value
-def calculate_deviation(value, group, col):
-    mean_dev = abs(value - group[col].mean())
-    median_dev = abs(value - group[col].median())
-    return mean_dev, median_dev
+# Columns with missing values to impute
+columns_to_impute = ['retail_price', 'discounted_price']
 
-# Iterate over rows with missing values and apply the best imputation method
-for index, row in df[df['retail_price'].isnull() | df['discounted_price'].isnull()].iterrows():
-    # Get the group based on 'description' and 'brand'
-    group = df[(df['description'] == row['description']) & (df['brand'] == row['brand'])]
+# Create imputed DataFrames for mean, median, and mode imputation
+df_mean_imputed = df.copy()
+df_mean_imputed[columns_to_impute] = df[columns_to_impute].fillna(df[columns_to_impute].mean())
+
+df_median_imputed = df.copy()
+df_median_imputed[columns_to_impute] = df[columns_to_impute].fillna(df[columns_to_impute].median())
+
+df_mode_imputed = df.copy()
+for col in columns_to_impute:
+    df_mode_imputed[col] = df[col].fillna(df[col].mode()[0])
+
+# Initialize a final DataFrame to store the best imputation for each column
+df_final = df.copy()
+
+# Function to calculate the best imputation based on minimum differences
+for column in columns_to_impute:
+    # Calculate absolute differences in mean, median, and standard deviation
+    a1 = abs(df[column].mean() - df_mean_imputed[column].mean())
+    b1 = abs(df[column].mean() - df_median_imputed[column].mean())
+    c1 = abs(df[column].mean() - df_mode_imputed[column].mean())
+
+    a2 = abs(df[column].median() - df_mean_imputed[column].median())
+    b2 = abs(df[column].median() - df_median_imputed[column].median())
+    c2 = abs(df[column].median() - df_mode_imputed[column].median())
+
+    a3 = abs(df[column].std() - df_mean_imputed[column].std())
+    b3 = abs(df[column].std() - df_median_imputed[column].std())
+    c3 = abs(df[column].std() - df_mode_imputed[column].std())
+
+    # Sum of differences for mean, median, and std
+    a = a1 + a2 + a3
+    b = b1 + b2 + b3
+    c = c1 + c2 + c3
+
+    # Choose the imputation method with the smallest difference
+    min_value = min(a, b, c)
+    if min_value == a:
+        df_final[column] = df_mean_imputed[column]
+    elif min_value == b:
+        df_final[column] = df_median_imputed[column]
+    else:
+        df_final[column] = df_mode_imputed[column]
+
+# Save and display the cleaned dataset
+print(df_final.isnull().sum())
+df_final.to_excel("flipdata.xlsx", index=False)
+   
+        
     
-    # Handle retail_price if missing
-    if pd.isnull(row['retail_price']):
-        # Calculate potential imputations
-        mean_value = group['retail_price'].mean()
-        median_value = group['retail_price'].median()
-        mode_value = group['retail_price'].mode()[0] if not group['retail_price'].mode().empty else np.nan
-        
-        # Calculate deviations
-        mean_dev, median_dev = calculate_deviation(mean_value, group, 'retail_price')
-        mode_dev, _ = calculate_deviation(mode_value, group, 'retail_price')
-        
-        # Choose the imputation with the smallest deviation
-        deviations = {
-            'mean': mean_dev,
-            'median': median_dev,
-            'mode': mode_dev
-        }
-        best_method = min(deviations, key=deviations.get)
-        
-        # Apply the best method
-        if best_method == 'mean':
-            df.at[index, 'retail_price'] = mean_value
-        elif best_method == 'median':
-            df.at[index, 'retail_price'] = median_value
-        elif best_method == 'mode':
-            df.at[index, 'retail_price'] = mode_value
-        else:
-            df.drop(index, inplace=True)
-    
-    # Handle discounted_price if missing
-    if pd.isnull(row['discounted_price']):
-        # Calculate potential imputations
-        mean_value = group['discounted_price'].mean()
-        median_value = group['discounted_price'].median()
-        mode_value = group['discounted_price'].mode()[0] if not group['discounted_price'].mode().empty else np.nan
-        
-        # Calculate deviations
-        mean_dev, median_dev = calculate_deviation(mean_value, group, 'discounted_price')
-        mode_dev, _ = calculate_deviation(mode_value, group, 'discounted_price')
-        
-        # Choose the imputation with the smallest deviation
-        deviations = {
-            'mean': mean_dev,
-            'median': median_dev,
-            'mode': mode_dev
-        }
-        best_method = min(deviations, key=deviations.get)
-        
-        # Apply the best method
-        if best_method == 'mean':
-            df.at[index, 'discounted_price'] = mean_value
-        elif best_method == 'median':
-            df.at[index, 'discounted_price'] = median_value
-        elif best_method == 'mode':
-            df.at[index, 'discounted_price'] = mode_value
-        else:
-            df.drop(index, inplace=True)
-
-# Save the updated DataFrame
-df.to_excel("updated_dataset.xlsx", index=True)
-
-# Check for remaining missing values
-missing_values_after = df[['retail_price', 'discounted_price']].isnull().sum()
-print("Remaining missing values after imputation:")
-print(missing_values_after)
-
-
-
-
 #2. brand (filling missing values with a placeholder)
 
 df['brand'] = df['brand'].fillna('Unknown')
@@ -208,70 +180,3 @@ for col in category_values:
 # Specify the columns you want to drop
 columns_to_drop = ['pid', 'overall_rating','crawl_timestamp']  
 
-import pandas as pd
-import numpy as np
-
-# Load your dataset
-# Replace 'your_dataset.csv' with your actual dataset file
-df = pd.read_csv('your_dataset.csv')
-
-# Function to calculate deviation from the original value
-def calculate_deviation(original, imputed):
-    return abs(original - imputed)
-
-# Function to handle missing values
-def handle_missing_values(df, columns):
-    for column in columns:
-        missing_indices = df[df[column].isnull()].index
-        
-        for index in missing_indices:
-            original_value = df.at[index, column]
-            
-            # Calculate imputed values
-            mean_value = df[column].mean()
-            median_value = df[column].median()
-            mode_value = df[column].mode()[0] if not df[column].mode().empty else np.nan
-            
-            # Create a dictionary to hold the imputed values
-            imputed_values = {
-                'mean': mean_value,
-                'median': median_value,
-                'mode': mode_value,
-                'drop': np.nan  # For drop case, we won't assign any value
-            }
-
-            # Calculate deviations
-            deviations = {
-                method: calculate_deviation(original_value, imputed)
-                for method, imputed in imputed_values.items()
-                if not np.isnan(imputed)
-            }
-
-            # Choose the imputation method with the least deviation
-            if deviations:
-                best_method = min(deviations, key=deviations.get)
-                best_value = imputed_values[best_method]
-
-                # Assign the best value back to the dataframe
-                df.at[index, column] = best_value
-
-    return df
-
-# Handle missing values for the specified columns
-columns_to_impute = ['retail_price', 'discounted_price']
-df_imputed = handle_missing_values(df, columns_to_impute)
-
-# Optionally, you can also drop rows with any remaining missing values
-df_final = df_imputed.dropna()
-
-# Save the cleaned dataset
-# Replace 'cleaned_dataset.csv' with your desired output file name
-df_final.to_csv('cleaned_dataset.csv', index=False)
-
-print("Missing values handled and dataset saved.")
-
-
-# Drop the specified columns
-#df = df.drop(columns=columns_to_drop)
-
-df.to_excel("updated_dataset.xlsx", index=False)
