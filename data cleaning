@@ -186,4 +186,29 @@ df.to_excel("updated_dataset.xlsx", index=False)
 # Display the DataFrame to verify the results
 print(df.head())
 
+df = pd.read_excel("updated_dataset.xlsx")
+#df_dropped = df.drop(columns=['pid', 'overall_rating','crawl_timestamp'])
+# Get the unique values from the 'category' column
+category_values = df['category'].unique()  
 
+# Iterate through the unique category values
+for col in category_values: 
+    # Replace '[' in the 'category' column for each category value
+    df['category'] = df['category'].str.replace('[', '', regex=False)
+
+# Get the unique values from the 'category' column
+category_values = df['category'].unique()  
+
+# Iterate through the unique category values
+for col in category_values: 
+    # Replace '[' in the 'category' column for each category value
+    df['category'] = df['category'].str.replace('"', '', regex=False)
+
+
+# Specify the columns you want to drop
+columns_to_drop = ['pid', 'overall_rating','crawl_timestamp']  # Adjust this list as needed
+
+# Drop the specified columns
+#df = df.drop(columns=columns_to_drop)
+
+df.to_excel("updated_dataset.xlsx", index=False)
