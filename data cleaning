@@ -1,0 +1,189 @@
+import pandas as pd
+import numpy as np
+
+df = pd.read_excel("flipdata.xlsx")
+
+#viewing the dataset
+print(df.head())
+print(df.info())
+print(df.describe())
+
+#checking counts of products with similar brand
+value_counts = df['brand'].value_counts()
+print(value_counts)
+
+#counting the rows with "no value" in the rating column
+no_rating_count = df[df['product_rating'] == 'No rating available'].shape[0]
+print(f"Number of rows with 'No rating available' in the rating column: {no_rating_count}")
+
+#how many missing values each column has
+df.isnull().sum()  
+
+#HANDLING MISSING VALUES
+
+#1. retail price and discounted price
+
+# Function to calculate deviation for a single value
+def calculate_deviation(value, group, col):
+    mean_dev = abs(value - group[col].mean())
+    median_dev = abs(value - group[col].median())
+    return mean_dev, median_dev
+
+# Iterate over rows with missing values and apply the best imputation method
+for index, row in df[df['retail_price'].isnull() | df['discounted_price'].isnull()].iterrows():
+    # Get the group based on 'description' and 'brand'
+    group = df[(df['description'] == row['description']) & (df['brand'] == row['brand'])]
+    
+    # Handle retail_price if missing
+    if pd.isnull(row['retail_price']):
+        # Calculate potential imputations
+        mean_value = group['retail_price'].mean()
+        median_value = group['retail_price'].median()
+        mode_value = group['retail_price'].mode()[0] if not group['retail_price'].mode().empty else np.nan
+        
+        # Calculate deviations
+        mean_dev, median_dev = calculate_deviation(mean_value, group, 'retail_price')
+        mode_dev, _ = calculate_deviation(mode_value, group, 'retail_price')
+        
+        # Choose the imputation with the smallest deviation
+        deviations = {
+            'mean': mean_dev,
+            'median': median_dev,
+            'mode': mode_dev
+        }
+        best_method = min(deviations, key=deviations.get)
+        
+        # Apply the best method
+        if best_method == 'mean':
+            df.at[index, 'retail_price'] = mean_value
+        elif best_method == 'median':
+            df.at[index, 'retail_price'] = median_value
+        elif best_method == 'mode':
+            df.at[index, 'retail_price'] = mode_value
+        else:
+            df.drop(index, inplace=True)
+    
+    # Handle discounted_price if missing
+    if pd.isnull(row['discounted_price']):
+        # Calculate potential imputations
+        mean_value = group['discounted_price'].mean()
+        median_value = group['discounted_price'].median()
+        mode_value = group['discounted_price'].mode()[0] if not group['discounted_price'].mode().empty else np.nan
+        
+        # Calculate deviations
+        mean_dev, median_dev = calculate_deviation(mean_value, group, 'discounted_price')
+        mode_dev, _ = calculate_deviation(mode_value, group, 'discounted_price')
+        
+        # Choose the imputation with the smallest deviation
+        deviations = {
+            'mean': mean_dev,
+            'median': median_dev,
+            'mode': mode_dev
+        }
+        best_method = min(deviations, key=deviations.get)
+        
+        # Apply the best method
+        if best_method == 'mean':
+            df.at[index, 'discounted_price'] = mean_value
+        elif best_method == 'median':
+            df.at[index, 'discounted_price'] = median_value
+        elif best_method == 'mode':
+            df.at[index, 'discounted_price'] = mode_value
+        else:
+            df.drop(index, inplace=True)
+
+# Save the updated DataFrame
+df.to_excel("updated_dataset.xlsx", index=True)
+
+# Check for remaining missing values
+missing_values_after = df[['retail_price', 'discounted_price']].isnull().sum()
+print("Remaining missing values after imputation:")
+print(missing_values_after)
+
+
+
+
+#2. brand (filling missing values with a placeholder)
+
+df['brand'] = df['brand'].fillna('Unknown')
+
+#3. images (dropping the rows may have a minimal impact on analysis since only 78 are affected.)
+
+df = df.dropna(subset=['image'])
+
+#4. description (dropping the rows may have a minimal impact on analysis since only 2 are affected.)
+
+df = df.dropna(subset=['description'])
+
+#5. product specifications(filling missing values with a placeholder)
+
+df['product_specifications'] = df['product_specifications'].fillna('Not Available')
+
+#6. product ratings(change the type into float and remove 'no available rating string' and convert it into 0)
+
+df['product_rating'] = df['product_rating'].replace('No rating available',0)
+df['product_rating'] = df['product_rating'].astype('float64')
+df.info()
+
+
+#HANDLING DUPLICATES
+
+# Check for duplicates
+duplicates = df.duplicated()
+print("\nDuplicates:")
+print(duplicates)
+
+# Remove duplicates
+df_unique = df.drop_duplicates()
+
+# Display the DataFrame after removing duplicates
+print("\nDataFrame after removing duplicates:")
+print(df_unique)
+
+#HANDLING COLUMNS NOT REQUIRED(dropping them)
+
+df_dropped = df.drop(columns=['pid', 'overall_rating'])
+
+#HANDLING OUTLIERS
+
+# Calculate Q1 (25th percentile) and Q3 (75th percentile)
+Q1 = df['retail_price'].quantile(0.25)
+Q3 = df['retail_price'].quantile(0.75)
+IQR = Q3 - Q1
+
+# Define outlier boundaries
+lower_bound = Q1 - 1.5 * IQR
+upper_bound = Q3 + 1.5 * IQR
+
+# Filter out outliers
+df_filtered = df[(df['retail_price'] >= lower_bound) & (df['retail_price'] <= upper_bound)]
+
+
+#1. removing +0000 from timestamp
+
+df['crawl_timestamp'] = df['crawl_timestamp'].str.replace('+0000', '')
+
+
+#2. splitting timestamp column
+
+df['crawl_timestamp'] = pd.to_datetime(df['crawl_timestamp'])
+df['year'] = df['crawl_timestamp'].dt.year
+df['month'] = df['crawl_timestamp'].dt.month
+df['day'] = df['crawl_timestamp'].dt.day
+
+#3. splitting category column
+
+# Split the 'product_category_tree' column into three parts and ignore any additional segments
+df[['category', 'type', 'style', 'sub_category']] = df['product_category_tree'].str.split('>>', n=3, expand=True)
+
+# Delete the original 'product_category_tree' column
+df.drop(columns=['product_category_tree'], inplace=True)
+df.drop(columns=['sub_category'], inplace=True)
+
+# Save the updated DataFrame back to Excel if needed
+df.to_excel("updated_dataset.xlsx", index=False)
+
+# Display the DataFrame to verify the results
+print(df.head())
+
+
