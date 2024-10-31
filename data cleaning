@@ -206,7 +206,70 @@ for col in category_values:
 
 
 # Specify the columns you want to drop
-columns_to_drop = ['pid', 'overall_rating','crawl_timestamp']  # Adjust this list as needed
+columns_to_drop = ['pid', 'overall_rating','crawl_timestamp']  
+
+import pandas as pd
+import numpy as np
+
+# Load your dataset
+# Replace 'your_dataset.csv' with your actual dataset file
+df = pd.read_csv('your_dataset.csv')
+
+# Function to calculate deviation from the original value
+def calculate_deviation(original, imputed):
+    return abs(original - imputed)
+
+# Function to handle missing values
+def handle_missing_values(df, columns):
+    for column in columns:
+        missing_indices = df[df[column].isnull()].index
+        
+        for index in missing_indices:
+            original_value = df.at[index, column]
+            
+            # Calculate imputed values
+            mean_value = df[column].mean()
+            median_value = df[column].median()
+            mode_value = df[column].mode()[0] if not df[column].mode().empty else np.nan
+            
+            # Create a dictionary to hold the imputed values
+            imputed_values = {
+                'mean': mean_value,
+                'median': median_value,
+                'mode': mode_value,
+                'drop': np.nan  # For drop case, we won't assign any value
+            }
+
+            # Calculate deviations
+            deviations = {
+                method: calculate_deviation(original_value, imputed)
+                for method, imputed in imputed_values.items()
+                if not np.isnan(imputed)
+            }
+
+            # Choose the imputation method with the least deviation
+            if deviations:
+                best_method = min(deviations, key=deviations.get)
+                best_value = imputed_values[best_method]
+
+                # Assign the best value back to the dataframe
+                df.at[index, column] = best_value
+
+    return df
+
+# Handle missing values for the specified columns
+columns_to_impute = ['retail_price', 'discounted_price']
+df_imputed = handle_missing_values(df, columns_to_impute)
+
+# Optionally, you can also drop rows with any remaining missing values
+df_final = df_imputed.dropna()
+
+# Save the cleaned dataset
+# Replace 'cleaned_dataset.csv' with your desired output file name
+df_final.to_csv('cleaned_dataset.csv', index=False)
+
+print("Missing values handled and dataset saved.")
+
 
 # Drop the specified columns
 #df = df.drop(columns=columns_to_drop)
