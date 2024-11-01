@@ -153,7 +153,7 @@ df.drop(columns=['product_category_tree'], inplace=True)
 df.drop(columns=['sub_category'], inplace=True)
 
 # Save the updated DataFrame back to Excel if needed
-df.to_excel("updated_dataset.xlsx", index=False)
+df.to_excel("flipdata.xlsx", index=False)
 
 # Display the DataFrame to verify the results
 print(df.head())
@@ -179,4 +179,13 @@ for col in category_values:
 
 # Specify the columns you want to drop
 columns_to_drop = ['pid', 'overall_rating','crawl_timestamp']  
+
+#merging columns
+
+df = pd.read_excel("flipdata.xlsx")
+df['date'] = pd.to_datetime(df[['year', 'month', 'day']])
+df['date'] = df['date'].dt.strftime('%Y-%m-%d')
+
+df.drop(columns=['day', 'year', 'month'], inplace=True)
+df.to_excel("flipdata.xlsx", index=False)
 
