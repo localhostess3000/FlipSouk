@@ -131,17 +131,15 @@ upper_bound = Q3 + 1.5 * IQR
 df_filtered = df[(df['retail_price'] >= lower_bound) & (df['retail_price'] <= upper_bound)]
 
 
-#1. removing +0000 from timestamp
+#1. making new column for discount percentage
 
-df['crawl_timestamp'] = df['crawl_timestamp'].str.replace('+0000', '')
+df = df.assign(discount_percentage=((df['retail_price'] - df['discounted_price']) / df['retail_price']) * 100)
 
+df[['discount_percentage','retail_price','discounted_price']].head()
 
 #2. splitting timestamp column
 
-df['crawl_timestamp'] = pd.to_datetime(df['crawl_timestamp'])
-df['year'] = df['crawl_timestamp'].dt.year
-df['month'] = df['crawl_timestamp'].dt.month
-df['day'] = df['crawl_timestamp'].dt.day
+df[['date', 'time', 'stamp']] = df['crawl_timestamp'].str.split(' ', expand=True, n=3)
 
 #3. splitting category column
 
@@ -178,7 +176,8 @@ for col in category_values:
 
 
 # Specify the columns you want to drop
-columns_to_drop = ['pid', 'overall_rating','crawl_timestamp']  
+df.drop(columns=['pid','overall_rating','crawl_timestamp', 'stamp'], inplace=True)
+
 
 #merging columns
 
