@@ -3,23 +3,41 @@ import numpy as np
 
 df = pd.read_excel("flipdata.xlsx")
 
-#viewing the dataset
-print(df.head())
-print(df.info())
-print(df.describe())
+# convert the 'discounted_price' and 'retail_price' columns to numeric
+df['discounted_price'] = pd.to_numeric(df['discounted_price'], errors='coerce')
+df['retail_price'] = pd.to_numeric(df['retail_price'], errors='coerce')
 
-#checking counts of products with similar brand
-value_counts = df['brand'].value_counts()
-print(value_counts)
+#product ratings(change the type into float and remove 'no available rating string' and convert it into 0)
 
-#counting the rows with "no value" in the rating column
-no_rating_count = df[df['product_rating'] == 'No rating available'].shape[0]
-print(f"Number of rows with 'No rating available' in the rating column: {no_rating_count}")
+df['product_rating'] = df['product_rating'].replace('No rating available',0)
+df['product_rating'] = df['product_rating'].astype('float64')
+df.info()
 
-#how many missing values each column has
-df.isnull().sum()  
 
-#HANDLING MISSING VALUES
+#dropping columns
+df.drop(columns=['pid','overall_rating'], inplace=True)
+
+#HANDLING MISSING VALUES      
+    
+#2. brand (filling missing values with a placeholder)
+
+df['brand'] = df['brand'].fillna('Unknown')
+# Convert 'brand' column to string type before creating the treemap
+df['brand'] = df['brand'].astype(str)
+
+
+#3. images (dropping the rows may have a minimal impact on analysis since only 78 are affected.)
+
+df = df.dropna(subset=['image'])
+
+#4. description (dropping the rows may have a minimal impact on analysis since only 2 are affected.)
+
+df = df.dropna(subset=['description'])
+
+#5. product specifications(filling missing values with a placeholder)
+
+df['product_specifications'] = df['product_specifications'].fillna('Not Available')
+
 
 #1. retail price and discounted price
 
@@ -71,50 +89,28 @@ for column in columns_to_impute:
 
 # Save and display the cleaned dataset
 print(df_final.isnull().sum())
-df_final.to_excel("flipdata.xlsx", index=False)
-   
-        
-    
-#2. brand (filling missing values with a placeholder)
-
-df['brand'] = df['brand'].fillna('Unknown')
-
-#3. images (dropping the rows may have a minimal impact on analysis since only 78 are affected.)
-
-df = df.dropna(subset=['image'])
-
-#4. description (dropping the rows may have a minimal impact on analysis since only 2 are affected.)
-
-df = df.dropna(subset=['description'])
-
-#5. product specifications(filling missing values with a placeholder)
-
-df['product_specifications'] = df['product_specifications'].fillna('Not Available')
-
-#6. product ratings(change the type into float and remove 'no available rating string' and convert it into 0)
-
-df['product_rating'] = df['product_rating'].replace('No rating available',0)
-df['product_rating'] = df['product_rating'].astype('float64')
-df.info()
+df_final.to_excel("flipdata_11.xlsx", index=False)
 
 
-#HANDLING DUPLICATES
+import pandas as pd
+import numpy as np
 
-# Check for duplicates
+df = pd.read_excel("flipdata_11.xlsx")
+
+#removing duplicates
 duplicates = df.duplicated()
-print("\nDuplicates:")
-print(duplicates)
-
-# Remove duplicates
 df_unique = df.drop_duplicates()
 
-# Display the DataFrame after removing duplicates
-print("\nDataFrame after removing duplicates:")
-print(df_unique)
+# drop all the rows where value in column 'discounted_price' is greater tha value in column 'retail_price'
+x=df[df['discounted_price'] > df['retail_price']]
+df.drop(x.index, inplace=True)
 
-#HANDLING COLUMNS NOT REQUIRED(dropping them)
+df.to_excel("flipdata_22.xlsx", index=False)
 
-df_dropped = df.drop(columns=['pid', 'overall_rating'])
+import pandas as pd
+import numpy as np
+
+df = pd.read_excel("flipdata_22.xlsx")
 
 #HANDLING OUTLIERS
 
@@ -130,34 +126,45 @@ upper_bound = Q3 + 1.5 * IQR
 # Filter out outliers
 df_filtered = df[(df['retail_price'] >= lower_bound) & (df['retail_price'] <= upper_bound)]
 
+df.to_excel("flipdata_33.xlsx", index=False)
 
-#1. making new column for discount percentage
+
+import pandas as pd
+import numpy as np
+
+df = pd.read_excel("flipdata_33.xlsx")
+#making new column for discount percentage
 
 df = df.assign(discount_percentage=((df['retail_price'] - df['discounted_price']) / df['retail_price']) * 100)
 
 df[['discount_percentage','retail_price','discounted_price']].head()
 
-#2. splitting timestamp column
+#splitting timestamp column
 
 df[['date', 'time', 'stamp']] = df['crawl_timestamp'].str.split(' ', expand=True, n=3)
+df.drop(columns=['stamp', 'crawl_timestamp'], inplace=True)
 
-#3. splitting category column
+#converting timestamp into proper format
+
+if not pd.api.types.is_datetime64_any_dtype(df['time']):
+    df['time'] = pd.to_datetime(df['time']) 
+
+if not pd.api.types.is_datetime64_any_dtype(df['date']):
+    df['date'] = pd.to_datetime(df['date'])
+
+#splitting category column
 
 # Split the 'product_category_tree' column into three parts and ignore any additional segments
 df[['category', 'type', 'style', 'sub_category']] = df['product_category_tree'].str.split('>>', n=3, expand=True)
 
-# Delete the original 'product_category_tree' column
+# Delete the original 'product_category_tree' column and the 'sub_category'
 df.drop(columns=['product_category_tree'], inplace=True)
 df.drop(columns=['sub_category'], inplace=True)
 
 # Save the updated DataFrame back to Excel if needed
-df.to_excel("flipdata.xlsx", index=False)
+#df.to_excel("flipdata.xlsx", index=False)
 
-# Display the DataFrame to verify the results
-print(df.head())
 
-df = pd.read_excel("updated_dataset.xlsx")
-#df_dropped = df.drop(columns=['pid', 'overall_rating','crawl_timestamp'])
 # Get the unique values from the 'category' column
 category_values = df['category'].unique()  
 
@@ -175,16 +182,6 @@ for col in category_values:
     df['category'] = df['category'].str.replace('"', '', regex=False)
 
 
-# Specify the columns you want to drop
-df.drop(columns=['pid','overall_rating','crawl_timestamp', 'stamp'], inplace=True)
 
 
-#merging columns
-
-df = pd.read_excel("flipdata.xlsx")
-df['date'] = pd.to_datetime(df[['year', 'month', 'day']])
-df['date'] = df['date'].dt.strftime('%Y-%m-%d')
-
-df.drop(columns=['day', 'year', 'month'], inplace=True)
-df.to_excel("flipdata.xlsx", index=False)
-
+df.to_excel("flipdata_44.xlsx", index=False)
