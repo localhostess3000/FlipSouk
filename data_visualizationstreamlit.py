@@ -17,7 +17,6 @@ import matplotlib.pyplot as plt
 # Optional caching for data loading
 @st.cache_data
 def load_data():
-    # Replace with actual data loading logic
     data = pd.read_csv('C:\Users\jain4\Downloads\flipdata_44.csv')
     return data
 
@@ -50,7 +49,7 @@ from datetime import datetime
 from wordcloud import WordCloud
 
 # Load the dataset
-df = pd.read_excel('flipdata_44.xlsx')
+df = pd.read_excel('C:\Users\jain4\Downloads\flipdata_44.xlsx')
 # Replace NaN values with unspecified labels
 df['type'] = df['type'].fillna('Unspecified Type')
 df['style'] = df['style'].fillna('Unspecified Style')
