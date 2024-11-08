@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 @st.cache_data
 def load_data():
     # Replace with actual data loading logic
-    data = pd.read_csv('your_data_file.csv')  # example file path
+    data = pd.read_csv('C:\Users\jain4\Downloads\flipdata_44.csv')
     return data
 
 # Load data
